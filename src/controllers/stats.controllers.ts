@@ -2,17 +2,19 @@ import { Product } from "../model/product.models";
 import { User } from "../model/user.models";
 import { Order } from "../model/order.models";
 import { TryCatch } from "../middleware/error.middleware";
-import { myCache } from "../app";
+import { cacheService } from "../services/cache.service";
 import { calculatePercentage } from "../DB/config";
-import e from "express";
 import { getInventories } from "../types/types";
 
 
 export const getDashboardStats = TryCatch(async(req,res,next) => {
     
-    let stats={};
+    let stats: any = {};
 
-    if(myCache.has("admin-stats")) stats = JSON.parse(myCache.get("admin-stats") as string);
+    if (cacheService.has("admin-stats")) {
+      const cached = cacheService.get<any>("admin-stats");
+      if (cached) stats = cached;
+    }
     else {
         const today = new Date();
         const sixMonthAgo = new Date()
@@ -177,7 +179,7 @@ stats = {
    lastestTransaction: modifiedLastestTransaction
 
 };
-myCache.set("admin-stats",JSON.stringify(stats))
+cacheService.set("admin-stats", stats)
 
     }
 
@@ -191,9 +193,12 @@ myCache.set("admin-stats",JSON.stringify(stats))
 
 export const getPieCharts = TryCatch(async(req,res,next) => {
     
-    let charts = {};
+    let charts: any = {};
 
-    if(myCache.has("admin-pie-charts")) charts = JSON.parse(myCache.get("admin-pie-charts") as string)
+    if (cacheService.has("admin-pie-charts")) {
+      const cached = cacheService.get<any>("admin-pie-charts");
+      if (cached) charts = cached;
+    }
         else {
     const allOrdersPromise = Order.find({}).select(["total","discount","subtotal","tax","shippingCharges"])
     
@@ -253,9 +258,8 @@ export const getPieCharts = TryCatch(async(req,res,next) => {
             }
             const usersAgeGroup = {
                 teen: allUsers.filter((i) => i.age < 20).length,
-                adult: allUsers.filter((i) => i.age >=20 && i.age < 40),
-                old: allUsers.filter((i) => i.age >= 40 && i.age < 40),
-
+                adult: allUsers.filter((i) => i.age >= 20 && i.age < 40).length,
+                old: allUsers.filter((i) => i.age >= 40).length,
             }
 
             const adminCustomer = {
@@ -280,7 +284,7 @@ customer: customerUsers
 
 
 
-myCache.set("admin-pie-charts",JSON.stringify(charts))            
+cacheService.set("admin-pie-charts", charts)            
     }
     return res.status(200).json({
         success: true,
@@ -292,11 +296,10 @@ myCache.set("admin-pie-charts",JSON.stringify(charts))
 export const getBarCharts = TryCatch(async(req,res,next) => {
     let bars;
 
-    if(myCache.has("admin-bar-charts")) bars = JSON.parse(myCache.get("admin-bar-charts") as string)
-        else {
-    
-            myCache.set("admin-bar-charts",JSON.stringify(bars))
-        }
+    if (cacheService.has("admin-bar-charts")) bars = cacheService.get("admin-bar-charts");
+    else {
+      cacheService.set("admin-bar-charts", bars);
+    }
         return res.status(200).json({
             success: true,
             bars

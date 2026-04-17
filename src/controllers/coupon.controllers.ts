@@ -1,25 +1,23 @@
-import { NextFunction,Request,Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { TryCatch } from "../middleware/error.middleware";
 import { Coupon } from "../model/coupon.models";
 import { NewCouponRequestBody } from "../types/types";
 import ErrorHandler from "../utils/utility-class";
-import { stripe } from "../app";
+import { getStripe, createPaymentIntent as createStripePaymentIntent } from "../services/stripe.service";
 
 
-export const createPaymentIntent = TryCatch(async(req,res,next) => {
-    const {amount} = req.body;
-    if(!amount) {
-        return next(new ErrorHandler("Please enter amount ",400))
-    }
-    const paymnetIntent = await stripe.paymentIntents.create({
-        amount: amount, currency: "usd"
-    })
+export const createPaymentIntent = TryCatch(async (req, res, next) => {
+  const { amount } = req.body;
+  if (!amount) {
+    return next(new ErrorHandler('Please enter amount', 400));
+  }
+  const paymentIntent = await createStripePaymentIntent(amount, 'usd');
 
-    return res.status(201).json({
-        success: true,
-        clinetSecret: paymnetIntent.client_secret
-    })
-})
+  return res.status(201).json({
+    success: true,
+    clientSecret: paymentIntent.client_secret,
+  });
+});
 
 export const newCoupon = TryCatch(async(req:Request<{},{},NewCouponRequestBody>,res:Response,next:NextFunction) => {
     const {code,amount} = req.body

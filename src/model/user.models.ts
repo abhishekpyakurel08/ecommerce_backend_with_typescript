@@ -9,7 +9,7 @@ interface IUSER extends Document {
     email: string;
     photo: string;
     password: string;
-    role: " admin" | "user";
+    role: "admin" | "user";
     gender: "male" | "female" | "other";
     age: number; /// Virtual Attribute
     dob: Date;
@@ -40,13 +40,13 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ["admin", "user"],
-        default: "user",
+        enum: ['admin', 'user'],
+        default: 'user',
     },
     gender: {
         type: String,
-        enum: ["male", "female"," other"],
-      required: [true, "Please enter a valid gender"],
+        enum: ['male', 'female', 'other'],
+        required: [true, 'Please enter a valid gender'],
     },
     dob:{
         type: Date,

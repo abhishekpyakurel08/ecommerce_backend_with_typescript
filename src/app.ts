@@ -1,57 +1,88 @@
-import express from "express"
-import dotenv from "dotenv"
-import cors from "cors"
-import cookieParser from "cookie-parser"
-import morgan from "morgan"
-import { connectDB } from "./DB/config"
-import userRoute from "./routes/user.route"
-import productRoute from "./routes/product.route"
-import orderRoute from "./routes/order.route"
-import paymentRoute from "./routes/coupon.route"
-import dashboardRoute from "./routes/stats.route"
-import { errorMiddleware } from "./middleware/error.middleware"
-import NodeCache from "node-cache"
-import Stripe from "stripe"
+import express from 'express';
+import { json, urlencoded } from 'express';
+import cookieParser from 'cookie-parser';
+import morgan from 'morgan';
+import { config } from './config';
+import { connectDB } from './services/db.service';
+import { setupSecurityMiddleware } from './middleware/security.middleware';
+import { errorMiddleware } from './middleware/error.middleware';
+import { setupGracefulShutdown, setServer } from './utils/lifecycle';
+import { logger } from './utils/logger';
 
-const app = express()
+// Import routes
+import userRoute from './routes/user.route';
+import productRoute from './routes/product.route';
+import orderRoute from './routes/order.route';
+import paymentRoute from './routes/coupon.route';
+import dashboardRoute from './routes/stats.route';
 
-dotenv.config({
-    "path": "./src/.env"
-})
-connectDB()
-const stripeKey = process.env.STRIPE_KEY
- || "";
+const app = express();
 
-export const stripe = new Stripe(stripeKey)
+// Security middleware (helmet, cors, rate limiting)
+setupSecurityMiddleware(app);
 
-export const myCache = new NodeCache();
+// Body parsing middleware
+app.use(json({ limit: '10mb' }));
+app.use(urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
 
-
-const port = process.env.PORT || 8000
-
-
-app.use(express.json()); // This parses incoming JSON
-app.use(express.urlencoded({
-    extended: true
-}))
- // Optional: handles form data
-const corsOption = {
-    origin: "http://localhost:5173",
-    credentials: true
+// Logging
+if (config.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
 }
-app.use(cors(corsOption))
-app.use(cookieParser())
-app.use(morgan("dev"))
 
+// Static files
+app.use('/uploads', express.static('uploads'));
 
-// // ROutes
-app.use("/api/v1/user",userRoute)
-app.use("/api/v1/product",productRoute)
-app.use("/api/v1/order",orderRoute)
-app.use("/api/v1/payments",paymentRoute)
-app.use('/api/v1/dashboard',dashboardRoute)
-app.use("/uploads",express.static("uploads"));
+// API Routes
+app.use('/api/v1/user', userRoute);
+app.use('/api/v1/product', productRoute);
+app.use('/api/v1/order', orderRoute);
+app.use('/api/v1/payments', paymentRoute);
+app.use('/api/v1/dashboard', dashboardRoute);
 
-app.listen(port,() => {
-    console.log(`Server Started at PORT ${port}`)
-})
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: config.NODE_ENV,
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.originalUrl} not found`,
+  });
+});
+
+// Global error handler
+app.use(errorMiddleware);
+
+// Start server
+const startServer = async (): Promise<void> => {
+  try {
+    // Connect to database
+    await connectDB();
+
+    // Setup graceful shutdown
+    setupGracefulShutdown();
+
+    // Start listening
+    const server = app.listen(config.PORT, () => {
+      logger.info(`Server started on port ${config.PORT} in ${config.NODE_ENV} mode`);
+    });
+
+    setServer(server);
+  } catch (error) {
+    logger.error('Failed to start server:', { error: (error as Error).message });
+    process.exit(1);
+  }
+};
+
+startServer();
+
+export default app;

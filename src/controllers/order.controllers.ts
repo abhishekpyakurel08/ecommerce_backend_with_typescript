@@ -1,9 +1,9 @@
-import { NextFunction ,Request,Response} from "express"
-import { TryCatch } from "../middleware/error.middleware"
-import {Order} from "../model/order.models"
-import { NewOrderRequestBody } from "../types/types"
-import { invalidateCache, reduceStock } from "../DB/config"
-import { myCache } from "../app"
+import { NextFunction, Request, Response } from "express";
+import { TryCatch } from "../middleware/error.middleware";
+import { Order } from "../model/order.models";
+import { NewOrderRequestBody } from "../types/types";
+import { invalidateCache, reduceStock } from "../DB/config";
+import { cacheService } from "../services/cache.service";
 
 
 
@@ -35,54 +35,56 @@ export const newOrder = TryCatch(async(req:Request<{},{},NewOrderRequestBody>,re
 })
 
 
-export const myOrder = TryCatch(async(req,res,next) => {
-  const {id} = req.query;  /// userId
-  const key = `my-orders-${id}`
-  let orders =[];
-  if(myCache.has(key)) orders = JSON.parse(myCache.get(key) as string)
-    else {
-orders = await Order.find({user:id});
-myCache.set(key,JSON.stringify(orders))
-    }
-    res.status(200).json({orders,
-        success: true
-    })
-})
-
-export const allOrder = TryCatch(async(req,res,next) => { 
-  const key = `all-orders`
-  let orders = []
-  if(myCache.has(key)) orders = JSON.parse(myCache.get(key) as string)
-    else {
-orders = await Order.find().populate("user", "name")
-myCache.set(key,JSON.stringify(orders))
-}
-res.status(200).json({orders,
+export const myOrder = TryCatch(async (req, res, next) => {
+  const { id } = req.query;
+  const key = `my-orders-${id}`;
+  let orders: any[] = [];
+  if (cacheService.has(key)) {
+    orders = cacheService.get<any[]>(key) || [];
+  } else {
+    orders = await Order.find({ user: id });
+    cacheService.set(key, orders);
+  }
+  res.status(200).json({
+    orders,
     success: true,
-    total:orders.length
-    })
+  });
+});
 
-})
+export const allOrder = TryCatch(async (req, res, next) => {
+  const key = 'all-orders';
+  let orders: any[] = [];
+  if (cacheService.has(key)) {
+    orders = cacheService.get<any[]>(key) || [];
+  } else {
+    orders = await Order.find().populate('user', 'name');
+    cacheService.set(key, orders);
+  }
+  res.status(200).json({
+    orders,
+    success: true,
+    total: orders.length,
+  });
+});
 
 
-export const getSingleOrder = TryCatch(async(req:Request,res:Response) => {
-    const {id} = req.params;
-    const key = `orders-${id}`
+export const getSingleOrder = TryCatch(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const key = `orders-${id}`;
 
-    let order;
-    if(myCache.has(key)) order = JSON.parse(myCache.get(key) as string);
-    else {
-        order = await Order.findById(id).populate("user", "name");
-        if(!order){
-            return res.status(404).json({message: "Order not found", success: false});
-        }
-        myCache.set(key, JSON.stringify(order));
+  let order;
+  if (cacheService.has(key)) {
+    order = cacheService.get<any>(key);
+  } else {
+    order = await Order.findById(id).populate('user', 'name');
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found', success: false });
     }
-    
-   return res.status(200).json({order, success: true})
+    cacheService.set(key, order);
+  }
 
-
-})
+  return res.status(200).json({ order, success: true });
+});
 
 export const processingOrder = TryCatch(async(req,res,next) => {
     const {id} = req.params;
