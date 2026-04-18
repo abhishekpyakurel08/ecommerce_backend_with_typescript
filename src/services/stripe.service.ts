@@ -10,7 +10,7 @@ export const getStripe = (): Stripe => {
       logger.warn('STRIPE_KEY not configured, Stripe functionality will not work');
     }
     stripeInstance = new Stripe(config.STRIPE_KEY, {
-      apiVersion: '2025-08-27.basil',
+      apiVersion: '2025-03-31.basil',
     });
   }
   return stripeInstance;

@@ -1,6 +1,6 @@
 import express from "express"
 // import { ADMINONLY } from "../middleware/auth.middleware"
-import { deleteProduct, getAdminProduct, getAllProduct, getAllProducts, getCategoriesProduct, getLatestProduct, getSingleProduct, newProduct, updateProduct } from "../controllers/product.controllers"
+import { deleteProduct, getAdminProduct, getAllProducts, getCategoriesProduct, getLatestProduct, getSingleProduct, newProduct, updateProduct } from "../controllers/product.controllers"
 import { singleUpload } from "../middleware/multer.middleware"
 import { ADMINONLY } from "../middleware/auth.middleware"
 

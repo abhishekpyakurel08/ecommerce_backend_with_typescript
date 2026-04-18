@@ -42,7 +42,7 @@ export const config: Config = {
   JWT_SECRET: getEnvVar('JWT_SECRET', 'default-secret-change-in-production'),
   JWT_EXPIRE: getEnvVar('JWT_EXPIRE', '7d'),
   PRODUCT_PER_PAGE: getEnvNumber('PRODUCT_PER_PAGE', 8),
-  CORS_ORIGIN: getEnvVar('CORS_ORIGIN', 'http://localhost:5173'),
+  CORS_ORIGIN: getEnvVar('CORS_ORIGIN', 'http://localhost:3000'),
   RATE_LIMIT_WINDOW_MS: getEnvNumber('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
   RATE_LIMIT_MAX: getEnvNumber('RATE_LIMIT_MAX', 100),
 };

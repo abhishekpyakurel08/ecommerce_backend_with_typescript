@@ -1,5 +1,5 @@
 import express from 'express';
-import { deleteUser, getAllUser, getUser, registerUser } from '../controllers/user.controllers';
+import { deleteUser, getAllUser, getUser, registerUser, loginUser, getMe, logoutUser } from '../controllers/user.controllers';
 import { authenticate, adminOnly } from '../middleware/auth.middleware';
 import { singleUpload } from '../middleware/multer.middleware';
 import { validate, commonValidations } from '../middleware/validation.middleware';
@@ -17,9 +17,12 @@ const registerValidation = [
 
 // Public routes
 router.route('/register').post(singleUpload, validate(registerValidation), registerUser);
+router.route('/login').post(loginUser);
 
 // Protected routes
 router.route('/all').get(authenticate, adminOnly, getAllUser);
+router.route('/me').get(authenticate, getMe);
+router.route('/logout').get(authenticate, logoutUser);
 router.route('/:id').get(authenticate, getUser);
 router.route('/:id').delete(authenticate, adminOnly, deleteUser);
 
