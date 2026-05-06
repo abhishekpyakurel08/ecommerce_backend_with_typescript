@@ -8,41 +8,49 @@ import { cacheService } from "../services/cache.service";
 
 
 
-export const newOrder = TryCatch(async(req:Request<{},{},NewOrderRequestBody>,res:Response,next:NextFunction) => {
-
-    const {shippingInfo,orderItems,user,subtotal,tax,total,shippingCharges,discount} = req.body;
-    if(!shippingInfo || !orderItems || !user || !subtotal || !tax || !total ){
-        return res.status(400).json({message:"Please fill all the fields", success: false})
-    }
+import { AuthRequest } from "../middleware/auth.middleware";
+import ErrorHandler from "../utils/utility-class";
 
 
- const order=  await Order.create({
-        shippingInfo,
-        orderItems,
-        user,
-        subtotal,
-        tax,
-        total,
-        discount
-    })
-    
-    await reduceStock(orderItems)
-    
+export const newOrder = TryCatch(async (req: AuthRequest, res: Response, next: NextFunction) => {
 
-    invalidateCache({product: true, order: true,admin:true,userId: user,productId:order.orderItems.map(i => String(i.productId)) })
-    res.status(201).json({message:"Order placed successfully",success: true,order })
+  const { shippingInfo, orderItems, subtotal, tax, total, shippingCharges, discount } = req.body;
+  const userId = req.user?.id;
+  if (!shippingInfo || !orderItems || !userId || !subtotal || !tax || !total) {
+    return res.status(400).json({ message: "Please fill all the fields", success: false })
+  }
+
+
+  const order = await Order.create({
+    shippingInfo,
+    orderItems,
+    user: userId,
+    subtotal,
+    tax,
+    total,
+    discount
+  })
+
+  await reduceStock(orderItems)
+
+
+  invalidateCache({ product: true, order: true, admin: true, userId: userId, productId: order.orderItems.map(i => String(i.productId)) })
+  res.status(201).json({ message: "Order placed successfully", success: true, order })
 
 })
 
 
-export const myOrder = TryCatch(async (req, res, next) => {
-  const { id } = req.query;
-  const key = `my-orders-${id}`;
+export const myOrder = TryCatch(async (req: AuthRequest, res, next) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return next(new ErrorHandler("User not found", 404));
+  }
+  const key = `my-orders-${userId}`;
   let orders: any[] = [];
   if (cacheService.has(key)) {
     orders = cacheService.get<any[]>(key) || [];
   } else {
-    orders = await Order.find({ user: id });
+    orders = await Order.find({ user: userId });
     cacheService.set(key, orders);
   }
   res.status(200).json({
@@ -86,39 +94,40 @@ export const getSingleOrder = TryCatch(async (req: Request, res: Response) => {
   return res.status(200).json({ order, success: true });
 });
 
-export const processingOrder = TryCatch(async(req,res,next) => {
-    const {id} = req.params;
-    const order = await Order.findById(id)
-if(!order){
-    return res.status(404).json({message: "Order not found",
-        success: false
+export const processingOrder = TryCatch(async (req, res, next) => {
+  const { id } = req.params;
+  const order = await Order.findById(id)
+  if (!order) {
+    return res.status(404).json({
+      message: "Order not found",
+      success: false
     })
-}
-switch(order.status) {
+  }
+  switch (order.status) {
     case "Processing":
-    order.status= "Shipped";
-    break;
+      order.status = "Shipped";
+      break;
     case "Shipped":
-        order.status = "Delivered";
- break;
- default:
-    order.status = "Delivered";
-    break  
-}
-await order.save()
-await invalidateCache({product: false,order: true, admin: true, userId: order.user, orderId:String(order)})
-return res.status(200).json({message: "Order Processing successfully", success: true});
+      order.status = "Delivered";
+      break;
+    default:
+      order.status = "Delivered";
+      break
+  }
+  await order.save()
+  await invalidateCache({ product: false, order: true, admin: true, userId: order.user, orderId: String(order) })
+  return res.status(200).json({ message: "Order Processing successfully", success: true });
 
 })
 
 
-export const deleteOrder = TryCatch(async(req,res,next) => {
-    const {id} = req.params;
-    const order = await Order.findById(id);
-    if(!order){
-        return res.status(404).json({message: "Order not found", success: false});
-        }
-    await order.deleteOne()
-    await invalidateCache({product: false, order: true,admin: true,userId: order.user, orderId:String(order)})
-    return res.status(200).json({message: "Order deleted successfully", success: true});
+export const deleteOrder = TryCatch(async (req, res, next) => {
+  const { id } = req.params;
+  const order = await Order.findById(id);
+  if (!order) {
+    return res.status(404).json({ message: "Order not found", success: false });
+  }
+  await order.deleteOne()
+  await invalidateCache({ product: false, order: true, admin: true, userId: order.user, orderId: String(order) })
+  return res.status(200).json({ message: "Order deleted successfully", success: true });
 })

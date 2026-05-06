@@ -17,6 +17,7 @@ export const authenticate = TryCatch(async (req: AuthRequest, res: Response, nex
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log("No token or malformed header:", authHeader);
     return next(new ErrorHandler('Authentication required. Please login.', 401));
   }
 
@@ -24,9 +25,11 @@ export const authenticate = TryCatch(async (req: AuthRequest, res: Response, nex
 
   try {
     const decoded = jwt.verify(token, config.JWT_SECRET) as { id: string; role: string };
+    console.log("Decoded token:", decoded);
     req.user = decoded;
     next();
   } catch (error) {
+    console.log("Token verification failed:", error);
     logger.warn('Invalid token attempt', { error: (error as Error).message });
     return next(new ErrorHandler('Invalid or expired token. Please login again.', 401));
   }
@@ -41,6 +44,8 @@ export const adminOnly = TryCatch(async (req: AuthRequest, res: Response, next: 
 
   const user = await User.findById(userId);
 
+  console.log("adminOnly check for user:", user?.email, "role:", user?.role);
+
   if (!user) {
     return next(new ErrorHandler('User not found', 404));
   }
@@ -50,6 +55,7 @@ export const adminOnly = TryCatch(async (req: AuthRequest, res: Response, next: 
     return next(new ErrorHandler('Access denied. Admin privileges required.', 403));
   }
 
+  console.log("adminOnly check passed");
   next();
 });
 

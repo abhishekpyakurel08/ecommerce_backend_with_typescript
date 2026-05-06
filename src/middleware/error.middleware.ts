@@ -3,6 +3,7 @@ import ErrorHandlerClass from "../utils/utility-class";
 import { ControllerType } from "../types/types";
 
 export const errorMiddleware: ErrorRequestHandler = (err: ErrorHandlerClass, req: Request, res: Response, next: NextFunction) => {
+    console.log("Error occurred:", err);
     err.message ||= "Internal Server Error",
         err.statusCode ||= 500
 

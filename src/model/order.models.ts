@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-
 const orderSchema = new mongoose.Schema({
     shippingInfo: {
         address: {
@@ -22,7 +21,10 @@ const orderSchema = new mongoose.Schema({
         pinCode: {
             type: Number,
             required: true
-
+        },
+        phoneNo: {
+            type: String,
+            required: true
         }
     },
     user: {
@@ -33,7 +35,6 @@ const orderSchema = new mongoose.Schema({
     subtotal: {
         type: Number,
         required: true
-
     },
     tax: {
         type: Number,
@@ -50,12 +51,30 @@ const orderSchema = new mongoose.Schema({
     total: {
         type: Number,
         required: true
-
     },
     status: {
         type: String,
         enum: ["Processing", "Shipped", "Delivered", "cancelled"],
         default: "Processing"
+    },
+    // Payment tracking fields for production-ready Stripe
+    paymentInfo: {
+        id: {
+            type: String,
+            default: ""
+        },
+        status: {
+            type: String,
+            enum: ["pending", "succeeded", "failed", "cancelled", "refunded"],
+            default: "pending"
+        },
+        method: {
+            type: String,
+            default: "card"
+        },
+        paidAt: {
+            type: Date
+        }
     },
     orderItems: [
         {
@@ -65,17 +84,11 @@ const orderSchema = new mongoose.Schema({
             quantity: Number,
             productId: {
                 type: mongoose.Types.ObjectId,
-                ref: "Product",
-                // required: true
+                ref: "Product"
             }
-
         }
     ]
-
-
-
-
-},{timestamps: true})
+}, { timestamps: true })
 
 
 export const Order = mongoose.model("Order",orderSchema)

@@ -6,307 +6,195 @@ import { cacheService } from "../services/cache.service";
 import { calculatePercentage } from "../DB/config";
 import { getInventories } from "../types/types";
 
-
-export const getDashboardStats = TryCatch(async(req,res,next) => {
-    
+export const getDashboardStats = TryCatch(async (req, res, next) => {
     let stats: any = {};
 
     if (cacheService.has("admin-stats")) {
-      const cached = cacheService.get<any>("admin-stats");
-      if (cached) stats = cached;
-    }
-    else {
+        stats = cacheService.get<any>("admin-stats");
+    } else {
         const today = new Date();
-        const sixMonthAgo = new Date()
-        sixMonthAgo.setMonth(sixMonthAgo.getMonth() - 6)
+        const sixMonthAgo = new Date();
+        sixMonthAgo.setMonth(sixMonthAgo.getMonth() - 6);
 
-        const thiMonth = {
-            start:  new Date(today.getFullYear(),today.getMonth(),1),
-            end: today
-        }
+        const thisMonth = {
+            start: new Date(today.getFullYear(), today.getMonth(), 1),
+            end: today,
+        };
         const lastMonth = {
-            start: new Date(today.getFullYear(),today.getMonth()-1,1),
-            end: new Date(today.getFullYear(),today.getMonth(),0)
-        }
+            start: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+            end: new Date(today.getFullYear(), today.getMonth(), 0),
+        };
 
+        const [
+            thisMonthProducts,
+            thisMonthUsers,
+            thisMonthOrders,
+            lastMonthProducts,
+            lastMonthUsers,
+            lastMonthOrders,
+            productCount,
+            userCount,
+            allOrders,
+            lastSixMonthOrders,
+        ] = await Promise.all([
+            Product.find({ createdAt: { $gte: thisMonth.start, $lte: thisMonth.end } }),
+            User.find({ createdAt: { $gte: thisMonth.start, $lte: thisMonth.end } }),
+            Order.find({ createdAt: { $gte: thisMonth.start, $lte: thisMonth.end } }),
+            Product.find({ createdAt: { $gte: lastMonth.start, $lte: lastMonth.end } }),
+            User.find({ createdAt: { $gte: lastMonth.start, $lte: lastMonth.end } }),
+            Order.find({ createdAt: { $gte: lastMonth.start, $lte: lastMonth.end } }),
+            Product.countDocuments(),
+            User.countDocuments(),
+            Order.find({}).select("total"),
+            Order.find({ createdAt: { $gte: sixMonthAgo, $lte: today } }),
+        ]);
 
+        const thisMonthRevenue = thisMonthOrders.reduce((acc, order) => acc + (order.total || 0), 0);
+        const lastMonthRevenue = lastMonthOrders.reduce((acc, order) => acc + (order.total || 0), 0);
 
-const thisMonthProductsPromise = Product.find({
-    createdAt: {
-        $gte: thiMonth.start,
-        $lte: thiMonth.end
+        const totalRevenue = allOrders.reduce((acc, order) => acc + (order.total || 0), 0);
+
+        stats = {
+            totalRevenue,
+            totalOrders: allOrders.length,
+            totalProducts: productCount,
+            totalUsers: userCount,
+            revenueChange: calculatePercentage(thisMonthRevenue, lastMonthRevenue),
+            ordersChange: calculatePercentage(thisMonthOrders.length, lastMonthOrders.length),
+            productsChange: calculatePercentage(thisMonthProducts.length, lastMonthProducts.length),
+            usersChange: calculatePercentage(thisMonthUsers.length, lastMonthUsers.length),
+        };
+
+        cacheService.set("admin-stats", stats);
     }
-})
-const lastMonthProductsPromise = Product.find({
-    createdAt: {
-        $gte: lastMonth.start,
-        $lte: lastMonth.end
-    }
-})
-
-
-
-
-
-
-const thisMonthUsersPromise = User.find({
-    createdAt: {
-        $gte: thiMonth.start,
-        $lte: thiMonth.end
-    }
-})
-const lastMonthUsersPromise = User.find({
-    createdAt: {
-        $gte: lastMonth.start,
-        $lte: lastMonth.end
-    }
-})
-
-
-const thisMonthOrdersPromise = Order.find({
-    createdAt: {
-        $gte: thiMonth.start,
-        $lte: thiMonth.end
-    }
-})
-const lastMonthOrdersPromise = Order.find({
-    createdAt: {
-        $gte: lastMonth.start,
-        $lte: lastMonth.end
-    }
-})
-
-const lastSixMonthOrdersPromise = Order.find({
-    createdAt: {
-        $gte: sixMonthAgo,
-        $lte: today
-    }
-})
-const latestTransactionPromise = Order.find({}).select(["orderItems","discount","total","status"]).limit(4)
-
-
-const [thisMonthProducts,thisMonthUsers,thisMonthOrders,lastMonthProducts,lastMonthUsers,lastMonthOrders,productCount,
-    userCount,
-    allOrders,
-    lastSixMonthOrders,
-    categories,
-    femaleUsersCount,
-    latestTransaction
-] = await Promise.all([
-    thisMonthProductsPromise,
-    thisMonthUsersPromise,
-    thisMonthOrdersPromise,
-    lastMonthProductsPromise,
-    lastMonthUsersPromise,
-    lastMonthOrdersPromise,
-    Product.countDocuments(),
-    User.countDocuments(),
-    Order.find({}).select("total"),
-    lastSixMonthOrdersPromise,
-    Product.distinct("category"),
-    User.countDocuments({gender:"female"}),
-    latestTransactionPromise
-    
-])
-
-const thiMonthRevenue = thisMonthOrders.reduce((total,order) => total = (order.total || 0),0)
-const lastMonthRevenue = lastMonthOrders.reduce((total,order) => total = (order.total || 0), 0)
-
-
-
-const changePercent = {
-    revenue: calculatePercentage(thiMonthRevenue,lastMonthRevenue),
-    product:calculatePercentage(thisMonthProducts.length,lastMonthProducts.length),
-
-    user: calculatePercentage(thisMonthUsers.length,lastMonthUsers.length),
-
-    order: calculatePercentage(thisMonthOrders.length,lastMonthOrders.length)
-}
-
-const revenue = allOrders.reduce((total,order) => total + (order.total || 0),0)
-
-const count = {
-    revenue,
-    product: productCount,
-    user: userCount,
-    order: allOrders.length
-}
-const orderMonthCounts = new Array(6).fill(0)
-const orderMonthlyRevenue = new Array(6).fill(0)
-lastSixMonthOrders.forEach((order) => {
-   const creationDate = order.createdAt;
-
-   const monthDiff = (today.getMonth() - creationDate.getMonth() + 12) % 12
-   if(monthDiff < 6){
-    orderMonthCounts[6-monthDiff -1] +=1
-    orderMonthlyRevenue[6-monthDiff-1] += order.total
-
-
-   }
-})
-const categoriesCountPromise =categories.map((category) => Product.countDocuments({category}))
-const categoriesCount = await Promise.all(categoriesCountPromise);
-
-const categoryCount:Record<string,number>[] = [];
-
-categories.forEach((category,i) => {
-    categoryCount.push(
-        {
-            [category]: Math.round((categoriesCount[i]/productCount)) * 100
-        }
-    )
-})
-const userRatio = {
-    male: userCount - femaleUsersCount,
-    female: femaleUsersCount
-}
-const modifiedLastestTransaction = latestTransaction.map((i) => ({
-    _id: i._id,
-    discount: i.discount,
-    amount: i.total,
-    quantity: i.orderItems.length,
-    status: i.status
-}))
-stats = {
-    categoryCount,
-   changePercent,
-   count,
-   chart: {
-    order: orderMonthCounts,
-    revenue: orderMonthlyRevenue,
-   },
-   userRatio,
-   lastestTransaction: modifiedLastestTransaction
-
-};
-cacheService.set("admin-stats", stats)
-
-    }
-
 
     return res.status(200).json({
         success: true,
-        stats
-    })
+        ...stats,
+    });
+});
 
-})
-
-export const getPieCharts = TryCatch(async(req,res,next) => {
-    
+export const getPieCharts = TryCatch(async (req, res, next) => {
     let charts: any = {};
 
     if (cacheService.has("admin-pie-charts")) {
-      const cached = cacheService.get<any>("admin-pie-charts");
-      if (cached) charts = cached;
+        charts = cacheService.get<any>("admin-pie-charts");
+    } else {
+        const [processing, shipped, delivered, cancelled] = await Promise.all([
+            Order.countDocuments({ status: "Processing" }),
+            Order.countDocuments({ status: "Shipped" }),
+            Order.countDocuments({ status: "Delivered" }),
+            Order.countDocuments({ status: "Cancelled" }),
+        ]);
+
+        charts = {
+            labels: ["Processing", "Shipped", "Delivered", "Cancelled"],
+            data: [processing, shipped, delivered, cancelled],
+        };
+
+        cacheService.set("admin-pie-charts", charts);
     }
-        else {
-    const allOrdersPromise = Order.find({}).select(["total","discount","subtotal","tax","shippingCharges"])
-    
-            const [processingOrder,shippedOrder,deliveredOrder,categories,productCount,outOfStock,allOrders,allUsers,
-                adminUsers,
-                customerUsers
 
-            ] = await Promise.all([
-                Order.countDocuments({status: "Processing"}),
-                Order.countDocuments({status: "Shipped"}),
-                Order.countDocuments({status: "Delivered"}),
-                Product.distinct("category"),
-                Product.countDocuments(),
-                Product.countDocuments({stock: 0}),
-                allOrdersPromise,
-                User.find({}).select(["dob"]),
-                User.countDocuments({role: "admin"}),
-                User.countDocuments({role: "user"})
-                
-                
-            ])
-
-            const orderFullfillment ={
-                processing: processingOrder,
-                shipped: shippedOrder,
-                delivered: deliveredOrder
-
-            }
-            const productCategories = await getInventories({
-                categories,
-                productCount
-            })
-
-            const stockAvailablity = {
-                inStock: productCount - outOfStock,
-                outOfStock
-            }
-            const totalGrossIncome = allOrders.reduce((prev,order) => prev + (order.total || 0),0)
-
-            const totalDiscount = allOrders.reduce((prev,order) => prev + (order.discount || 0),0)
-
-            const productionCost = allOrders.reduce((prev,order) => prev + (order.shippingCharges || 0),0)
-
-            const burnt = allOrders.reduce((prev,order) => prev + (order.tax || 0),0)
-
-            const markingCost = Math.round(totalGrossIncome * (30 /100))
-
-            const netMargin = totalGrossIncome - totalDiscount - productCount -burnt - markingCost
-
-            const revenueDistrubution = {
-                netMargin,
-                discount: totalDiscount,
-                productCost: productionCost,
-                burnt,
-                markingCost
-
-            }
-            const usersAgeGroup = {
-                teen: allUsers.filter((i) => i.age < 20).length,
-                adult: allUsers.filter((i) => i.age >= 20 && i.age < 40).length,
-                old: allUsers.filter((i) => i.age >= 40).length,
-            }
-
-            const adminCustomer = {
-admin: adminUsers,
-customer: customerUsers
-
-            }
-
-            charts = {
-                orderFullfillment,
-                productCategories,
-                stockAvailablity,
-                revenueDistrubution,
-                usersAgeGroup,
-                adminCustomer
-            }
-
-
-
-
-
-
-
-
-cacheService.set("admin-pie-charts", charts)            
-    }
     return res.status(200).json({
         success: true,
-        charts
-    })
-})
+        ...charts,
+    });
+});
 
+export const getBarCharts = TryCatch(async (req, res, next) => {
+    let charts: any = {};
 
-export const getBarCharts = TryCatch(async(req,res,next) => {
-    let bars;
+    if (cacheService.has("admin-bar-charts")) {
+        charts = cacheService.get<any>("admin-bar-charts");
+    } else {
+        const today = new Date();
+        const sixMonthAgo = new Date();
+        sixMonthAgo.setMonth(sixMonthAgo.getMonth() - 6);
 
-    if (cacheService.has("admin-bar-charts")) bars = cacheService.get("admin-bar-charts");
-    else {
-      cacheService.set("admin-bar-charts", bars);
+        const [products, users, orders] = await Promise.all([
+            Product.find({ createdAt: { $gte: sixMonthAgo, $lte: today } }).select("createdAt"),
+            User.find({ createdAt: { $gte: sixMonthAgo, $lte: today } }).select("createdAt"),
+            Order.find({ createdAt: { $gte: sixMonthAgo, $lte: today } }).select("createdAt"),
+        ]);
+
+        const productCounts = new Array(6).fill(0);
+        const userCounts = new Array(6).fill(0);
+        const orderCounts = new Array(6).fill(0);
+
+        [products, users, orders].forEach((list, i) => {
+            list.forEach((item) => {
+                const creationDate = (item as any).createdAt;
+                const monthDiff = (today.getMonth() - creationDate.getMonth() + 12) % 12;
+                if (monthDiff < 6) {
+                    if (i === 0) productCounts[5 - monthDiff]++;
+                    if (i === 1) userCounts[5 - monthDiff]++;
+                    if (i === 2) orderCounts[5 - monthDiff]++;
+                }
+            });
+        });
+
+        const labels = [];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            labels.push(d.toLocaleString('default', { month: 'short' }));
+        }
+
+        charts = {
+            labels,
+            products: productCounts,
+            users: userCounts,
+            orders: orderCounts,
+        };
+
+        cacheService.set("admin-bar-charts", charts);
     }
-        return res.status(200).json({
-            success: true,
-            bars
-        })
 
-})
+    return res.status(200).json({
+        success: true,
+        ...charts,
+    });
+});
 
-export const getLineCharts = TryCatch(async(req,res,next) => {
-    
-})
+export const getLineCharts = TryCatch(async (req, res, next) => {
+    let charts: any = {};
+
+    if (cacheService.has("admin-line-charts")) {
+        charts = cacheService.get<any>("admin-line-charts");
+    } else {
+        const today = new Date();
+        const twelveMonthAgo = new Date();
+        twelveMonthAgo.setMonth(twelveMonthAgo.getMonth() - 12);
+
+        const orders = await Order.find({ createdAt: { $gte: twelveMonthAgo, $lte: today } }).select(["createdAt", "total"]);
+
+        const revenueData = new Array(12).fill(0);
+
+        orders.forEach((order) => {
+            const creationDate = order.createdAt;
+            const monthDiff = (today.getMonth() - creationDate.getMonth() + 12) % 12;
+            if (monthDiff < 12) {
+                revenueData[11 - monthDiff] += order.total || 0;
+            }
+        });
+
+        const labels = [];
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            labels.push(d.toLocaleString('default', { month: 'short' }));
+        }
+
+        charts = {
+            labels,
+            data: revenueData,
+        };
+
+        cacheService.set("admin-line-charts", charts);
+    }
+
+    return res.status(200).json({
+        success: true,
+        ...charts,
+    });
+});

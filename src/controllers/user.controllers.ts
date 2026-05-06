@@ -12,7 +12,7 @@ export const registerUser = TryCatch(async (req: Request<{}, {}, NewUserRequestB
     const { name, _id, email, password, photo, dob, gender } = req.body;
     console.log(name, _id, email, password, photo, dob, gender);
     if (!name || !_id || !email || !password || !photo || !dob || !gender) {
-        return res.status(400).json({ message: "Please fill all the fields", sucess: false });
+        return res.status(400).json({ message: "Please fill all the fields", success: false });
     }
     let user = await User.findById(_id);
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -55,6 +55,8 @@ export const loginUser = TryCatch(async (req: Request, res: any, next: NextFunct
     );
 
     const userWithoutPassword = await User.findById(user._id).select("-password");
+    console.log("Login user object:", userWithoutPassword);
+    console.log("Login user role:", userWithoutPassword?.role);
 
     return res.status(200).json({
         message: "Login successful",

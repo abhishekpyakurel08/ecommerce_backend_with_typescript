@@ -1,12 +1,12 @@
 
 import multer from "multer"
-import {v7 as uuid} from "uuid"
+import { v7 as uuid } from "uuid"
 
 
-const storage =  multer.diskStorage({
+const storage = multer.diskStorage({
 
-    destination: (req,file,callback) =>{
-        callback(null,"/uploads")
+    destination: (req, file, callback) => {
+        callback(null, "uploads")
 
     },
     filename(req, file, callback) {
@@ -14,9 +14,9 @@ const storage =  multer.diskStorage({
         const extName = file.originalname.split(".").pop()
         const fileName = `${id}.${extName}`
 
-        callback(null,fileName)
-        
+        callback(null, fileName)
+
     },
 
 })
-export const singleUpload = multer({storage}).single("photo")
+export const singleUpload = multer({ storage }).single("photo")

@@ -8,6 +8,7 @@ interface Config {
   PORT: number;
   DB_CONNECTION: string;
   STRIPE_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
   JWT_SECRET: string;
   JWT_EXPIRE: string;
   PRODUCT_PER_PAGE: number;
@@ -39,6 +40,7 @@ export const config: Config = {
   PORT: getEnvNumber('PORT', 8000),
   DB_CONNECTION: getEnvVar('DB_CONNECTION', 'mongodb://localhost:27017/ecommerce'),
   STRIPE_KEY: getEnvVar('STRIPE_KEY', ''),
+  STRIPE_WEBHOOK_SECRET: getEnvVar('STRIPE_WEBHOOK_SECRET', ''),
   JWT_SECRET: getEnvVar('JWT_SECRET', 'default-secret-change-in-production'),
   JWT_EXPIRE: getEnvVar('JWT_EXPIRE', '7d'),
   PRODUCT_PER_PAGE: getEnvNumber('PRODUCT_PER_PAGE', 8),

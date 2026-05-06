@@ -15,6 +15,7 @@ import productRoute from './routes/product.route';
 import orderRoute from './routes/order.route';
 import paymentRoute from './routes/coupon.route';
 import dashboardRoute from './routes/stats.route';
+import { handleStripeWebhook } from './controllers/webhook.controller';
 
 const app = express();
 
@@ -30,15 +31,26 @@ app.use(cookieParser());
 if (config.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url} - Auth: ${req.headers.authorization ? 'Present' : 'Missing'}`);
+  next();
+});
+app.use(express.json());
 
-// Static files
-app.use('/uploads', express.static('uploads'));
+// Static files - serve uploads folder with absolute path
+import path from 'path';
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/products/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Stripe webhook route - needs raw body for signature verification
+app.post('/api/v1/webhook/stripe', express.raw({ type: 'application/json' }), handleStripeWebhook);
 
 // API Routes
 app.use('/api/v1/user', userRoute);
 app.use('/api/v1/product', productRoute);
 app.use('/api/v1/order', orderRoute);
 app.use('/api/v1/payments', paymentRoute);
+app.use('/api/v1/coupon', paymentRoute);
 app.use('/api/v1/dashboard', dashboardRoute);
 
 // Health check endpoint
